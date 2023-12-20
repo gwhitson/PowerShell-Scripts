@@ -1,6 +1,6 @@
 function Write-ToSQLTable {
     param(
-        [Parameter(Mandatory=$true, position=0)]
+        [Parameter(Mandatory=$true, position=0, de)]
         [String]$database,
         [Parameter(Mandatory=$true, position=1)]
         [String]$table,
@@ -10,6 +10,8 @@ function Write-ToSQLTable {
         [Array]$InsertValues,
         [Parameter(Mandatory=$false, position=4)]
         [String]$server,
+        [Parameter(Mandatory=$false, position=5)]
+        [String]$schema = "dbo",
         [Parameter(Mandatory=$false, ValueFromPipeline)]
         [System.Data.SqlClient.SqlConnection]$conn = $null
     )
@@ -18,7 +20,12 @@ function Write-ToSQLTable {
     if ($conn -eq $null){
         $conn = New-Object System.Data.SqlClient.SqlConnection
         $conn.ConnectionString = "Server = $server; Database = $database; Integrated Security = True"
-        $conn.open()
+        try{
+            $conn.open()
+        } catch [System.Data.SqlClient.SqlException]{
+            write-error "database not accessible to user account"
+            break
+        }
     }
 
     if ($conn.State -ne "Open"){
@@ -39,7 +46,7 @@ function Write-ToSQLTable {
 
     ############# VERIFY INPUT VALUE TYPES ################################
 
-    $query.CommandText = "Select * from [$database].[dbo].[$table];"
+    $query.CommandText = "SELECT * FROM[$database].[$schema].[$table];"
     $adapter.SelectCommand = $query
     $adapter.fill($ds)
 
@@ -49,37 +56,31 @@ function Write-ToSQLTable {
     if ($tableTypeString -eq $inputTypeString){
         # FORMAT INSERT KEYS
         $InsertKeys | % {
+            $keysFormatted += [string](Convert-ToSQLColumnName $_)
             if ($_ -ne $InsertKeys[-1]){
-                $KeysFormatted += [string]($_.toString() +  ',')
-            } else {
-                $KeysFormatted += $_.toString()
+                $KeysFormatted += ", "
             }
         }
 
         # FORMAT INSERT VALUES
         $InsertValues | % {
-            if ($_ -ne $InsertValues[-1]){
-                if ($_.getType().name -eq "String"){
-                    $ValuesFormatted +=  [string]("`'" + $_.toString() +  "`',")    
-                } elseif ($_.getType().name -eq "DateTime"){
-                    $ValuesFormatted += [string](Convert-ToSQLDateTime $_ + ",")
-                } else {
-                    $ValuesFormatted += [string]($_.toString() +  ',')
-                }
+            if ($_.getType().name -eq "String"){
+                $ValuesFormatted += [string](Convert-ToSQLString $_)
+            } elseif ($_.getType().name -eq "DateTime"){
+                $ValuesFormatted += [string](Convert-ToSQLDateTime $_)
             } else {
-                if ($_.getType().name -eq "String"){
-                    $ValuesFormatted +=  [string]("`'" + $_.toString() +  "`'")
-                } elseif ($_.getType().name -eq "DateTime"){
-                    $ValuesFormatted += [string](Convert-ToSQLDateTime $_)
-                } else {
-                    $ValuesFormatted += [string]($_.toString())
-                }
+                $ValuesFormatted += [string]($_.toString())
+            }
+            
+            if ($_ -ne $InsertValues[-1]){
+                $ValuesFormatted += ", "
             }
         }
 
         # BUILD/EXECUTE QUERY
-        write-host "INSERT INTO [$database].[dbo].[$table] ($KeysFormatted) VALUES ($ValuesFormatted);"
-        $query.CommandText = "INSERT INTO [$database].[dbo].[$table] ($KeysFormatted) VALUES ($ValuesFormatted);"
+        $queryText = "INSERT INTO [$database].[$schema].[$table] ($KeysFormatted) VALUES ($ValuesFormatted);"
+        write-Verbose $queryText
+        $query.CommandText = $queryText
         $query.ExecuteNonQuery()
     } else {
         write-error "Bad insert value passed in"
@@ -87,5 +88,3 @@ function Write-ToSQLTable {
 
     $conn.close()
 }
-
-function Convert-ToSQLDateTime ([datetime]$date){return ("`'" + (get-date $date -format "yyyy-MM-dd HH:mm:ss").ToString() + "`'")}

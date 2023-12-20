@@ -4,3 +4,4 @@
 ASU-PowerShell-Scripts/
 csvs/
 Write-ASULogFile/
+*/loadmodule.ps1

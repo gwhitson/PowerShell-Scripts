@@ -38,7 +38,7 @@
     $count = 1
     $columnsFormatted = "("
     $columns.Keys | %{
-        $columnsFormatted += ((Convert-ToSQLString $_) + " " + $columns[$_])
+        $columnsFormatted += ((Convert-ToSQLColumnName $_) + " " + $columns[$_])
         if ($count -ne $columns.count){
             $columnsFormatted += ", "
         }

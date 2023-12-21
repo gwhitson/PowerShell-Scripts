@@ -1,9 +1,9 @@
 function Write-ToSQLTable {
     param(
-        [Parameter(Mandatory=$true, position=0, de)]
+        [Parameter(Mandatory=$true, position=0)]
         [String]$database,
         [Parameter(Mandatory=$true, position=1)]
-        [String]$table,
+        [String]$table = "master",
         [Parameter(Mandatory=$true, position=2)]
         [Array]$InsertKeys,
         [Parameter(Mandatory=$true, position=3)]
@@ -46,7 +46,7 @@ function Write-ToSQLTable {
 
     ############# VERIFY INPUT VALUE TYPES ################################
 
-    $query.CommandText = "SELECT * FROM[$database].[$schema].[$table];"
+    $query.CommandText = "SELECT * FROM [$database].[$schema].[$table];"
     $adapter.SelectCommand = $query
     $adapter.fill($ds)
 
@@ -83,7 +83,7 @@ function Write-ToSQLTable {
         $query.CommandText = $queryText
         $query.ExecuteNonQuery()
     } else {
-        write-error "Bad insert value passed in"
+        write-error "Bad insert value passed in`ntable: $tableTypeString`ninput: $inputTypeString"
     }
 
     $conn.close()

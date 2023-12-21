@@ -1,17 +1,25 @@
-function Write-ToSQLTable {
+function Read-FromSQLTable {
     param(
         [Parameter(Mandatory=$true, position=0)]
         [String]$database,
         [Parameter(Mandatory=$true, position=1)]
-        [String]$table,
-        [Parameter(Mandatory=$true, position=2)]
-        [String]$NumRows,
+        [String]$table = "master",
+        [Parameter(Mandatory=$false, position=2)]
+        [String]$NumRows = "50",
         [Parameter(Mandatory=$false, position=3)]
         [String]$Schema = "dbo",
         [Parameter(Mandatory=$false, position=4)]
         [String]$server,
         [Parameter(Mandatory=$false, position=5)]
         [Array]$values = ('*'),
+        [Parameter(Mandatory=$false)]
+        [ValidateSet("Top", "Distinct")]
+        [String]$SelectModifier,
+        [Parameter(ParameterSetName='Order',Mandatory=$false)]
+        [ValidateSet("Ascending", "Descending")]
+        [String]$Order,
+        [Parameter(ParameterSetName='Order',Mandatory=$false)]
+        [String]$OrderBy = "",
         [Parameter(Mandatory=$false, ValueFromPipeline)]
         [System.Data.SqlClient.SqlConnection]$conn = $null
     )
@@ -38,60 +46,61 @@ function Write-ToSQLTable {
     $adapter = New-Object System.Data.SqlClient.SqlDataAdapter
     $ds = New-Object System.Data.DataSet
 
-    $tableTypeString = ""
-    $inputTypeString = ""
-
-    $KeysFormatted = ""
+    try {$SelectModifier = $SelectModifier.toUpper()} catch {}
+    try {$Order = $Order.ToUpper()} catch {}
     $ValuesFormatted = ""
 
     ############# VERIFY INPUT VALUE TYPES ################################
 
-    $query.CommandText = "Select * from [$database].[$schema].[$table];"
-    $adapter.SelectCommand = $query
-    $adapter.fill($ds)
-
-    $ds.tables.Columns.DataType.Name | %{ $tableTypeString += $_ }
-    $InsertValues | %{ $inputTypeString += $_.getType().name }
-
-    if ($tableTypeString -eq $inputTypeString){
-        # FORMAT INSERT KEYS
-        $InsertKeys | % {
-            if ($_ -ne $InsertKeys[-1]){
-                $KeysFormatted += [string]($_.toString() +  ',')
-            } else {
-                $KeysFormatted += $_.toString()
-            }
-        }
-
-        # FORMAT INSERT VALUES
-        $InsertValues | % {
-            if ($_ -ne $InsertValues[-1]){
-                if ($_.getType().name -eq "String"){
-                    $ValuesFormatted +=  [string]("`'" + $_.toString() +  "`',")    
-                } elseif ($_.getType().name -eq "DateTime"){
-                    $ValuesFormatted += [string](Convert-ToSQLDateTime $_ + ",")
-                } else {
-                    $ValuesFormatted += [string]($_.toString() +  ',')
-                }
-            } else {
-                if ($_.getType().name -eq "String"){
-                    $ValuesFormatted +=  [string]("`'" + $_.toString() +  "`'")
-                } elseif ($_.getType().name -eq "DateTime"){
-                    $ValuesFormatted += [string](Convert-ToSQLDateTime $_)
-                } else {
-                    $ValuesFormatted += [string]($_.toString())
-                }
-            }
-        }
-
-        # BUILD/EXECUTE QUERY
-        $queryText = "INSERT INTO [$database].[$schema].[$table] ($KeysFormatted) VALUES ($ValuesFormatted);"
-        write-Verbose $queryText
-        $query.CommandText = $queryText
-        $query.ExecuteNonQuery()
+    if ($values.Count -eq 1 -and $values[0] -eq "*"){
+        $ValuesFormatted = "*"
     } else {
-        write-error "Bad insert value passed in"
+        $values | % {
+            $ValuesFormatted += Convert-ToSQLColumnName $_
+            if ($_ -ne $values[-1]){
+                $ValuesFormatted += ", "
+            }
+        }
     }
 
+    ############# QUERY BUILDER ###########################################
+
+    $queryText = "SELECT "
+
+    if ($SelectModifier -eq "TOP" -or $SelectModifier -eq "DISTINCT"){
+        $queryText += ("$SelectModifier ($NumRows) ")
+    }
+    
+    $queryText += [String]($ValuesFormatted + " FROM [$database].[$schema].[$table]")
+
+    if ($Order -in @("ASCENDING", "DESCENDING")){
+        $queryText += " ORDER BY "
+        if ($OrderBy -in $values -or $values -eq @('*')){
+            if ($OrderBy -eq ""){
+                Write-Error "Must Specify value to order by"
+                break
+            }
+            $queryText += $OrderBy
+            if ($Order -eq "ASCENDING"){
+                $queryText += " ASC"
+            } else {
+                $queryText += " DESC"
+            }
+        } else {
+            write-error "Key to order by must by included in Keys to select"
+            break
+        }
+    }
+    
+    $queryText += ";"
+
+    $query.CommandText = $queryText
+    Write-Verbose $queryText
+
+    $adapter.SelectCommand = $query
+    $adapter.fill($ds)
+    
     $conn.close()
+
+    return $ds.tables
 }

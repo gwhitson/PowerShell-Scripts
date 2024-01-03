@@ -69,6 +69,10 @@ function Read-FromSQLTable {
 
     if ($SelectModifier -eq "TOP" -or $SelectModifier -eq "DISTINCT"){
         $queryText += ("$SelectModifier ($NumRows) ")
+    } else {
+        if ($NumRows -gt 0){
+            $queryText += ("TOP ($NumRows) ")
+        }
     }
     
     $queryText += [String]($ValuesFormatted + " FROM [$database].[$schema].[$table]")

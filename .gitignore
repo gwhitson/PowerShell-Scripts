@@ -6,3 +6,5 @@ csvs/
 Write-ASULogFile/
 */loadmodule.ps1
 Verify-IsAscii.ps1
+/PSSQLTools/*
+PSSQLTools/

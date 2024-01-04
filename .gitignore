@@ -1,10 +1,9 @@
 /ASU-PowerShell-Scripts/*
 /csvs/*
-/Write-ASULogFile/*
-ASU-PowerShell-Scripts/
-csvs/
-Write-ASULogFile/
-*/loadmodule.ps1
-Verify-IsAscii.ps1
 /PSSQLTools/*
-PSSQLTools/
+
+ASU-PowerShell-Scripts
+csvs
+PSSQLTools
+
+*/loadmodule.ps1

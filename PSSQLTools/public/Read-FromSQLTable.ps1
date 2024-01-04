@@ -91,7 +91,7 @@ function Read-FromSQLTable {
                 $queryText += " DESC"
             }
         } else {
-            write-error "Key to order by must be included in Keys to select"
+            write-error "Key to order by must be included in keys to select"
             break
         }
     }

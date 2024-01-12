@@ -26,10 +26,11 @@ function Generate-Password([int]$length){
     $i = 0
     $password = ""
 
-    while($i -le $length){
-        $password += Get-RandomCharacters -length 1 -characters "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()"
+    while($i -le ($length - 1)){
+        $password += Get-RandomCharacters -length 1 -characters "abjklmnopqrstuvwxyzABCDEFGHIJXYZ1234567890!@#$%^&*()"
 
     $i += 1
     }
+    $password += Get-RandomCharacters -length 1 -characters "!@#$%^&*()"
     return $password
 }
